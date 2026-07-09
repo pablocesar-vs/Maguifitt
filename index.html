@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <title>Magui FITT PRO</title>
+  <?!= include('style'); ?>
+  <script src="https://www.gstatic.com/charts/loader.js"></script>
+</head>
+<body>
+  <div id="app">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Magui FITT PRO</p>
+        <h1>Hola <span id="profileName">Magui</span> 👋</h1>
+        <p id="randomPhrase">Cada pequeño avance cuenta.</p>
+      </div>
+      <label class="avatarWrap">
+        <img id="profileAvatar" class="avatar" alt="Foto de perfil">
+        <input id="profilePhotoInput" type="file" accept="image/*" hidden>
+      </label>
+    </header>
+
+    <main>
+      <section class="view active" id="view-dashboard">
+        <div id="reminderBox" class="notice hidden"></div>
+
+        <div class="cards">
+          <article class="card"><span>Peso actual</span><strong id="dashWeight">-</strong></article>
+          <article class="card"><span>Objetivo</span><strong id="dashGoal">-</strong></article>
+          <article class="card"><span>IMC</span><strong id="dashImc">-</strong></article>
+          <article class="card"><span>Diferencia</span><strong id="dashDiff">-</strong></article>
+        </div>
+
+        <section class="panel">
+          <div class="panelHead">
+            <h2>Progreso</h2>
+            <strong id="dashProgressText">0%</strong>
+          </div>
+          <div class="progress"><div id="progressBar"></div></div>
+          <p id="smartMessage" class="muted">Cargando...</p>
+          <button class="primary" data-view="measurement">Nueva medición</button>
+        </section>
+
+        <section class="panel">
+          <h2>Gráfico de peso</h2>
+          <div id="chartPeso" class="chartBox"></div>
+        </section>
+
+        <section class="panel">
+          <h2>Cintura y glúteos</h2>
+          <div id="chartMedidas" class="chartBox"></div>
+        </section>
+      </section>
+
+      <section class="view" id="view-measurement">
+        <section class="panel">
+          <h2>Nueva medición</h2>
+          <form id="measurementForm" class="formGrid">
+            <input name="peso" type="number" step="0.1" placeholder="Peso kg *" required>
+            <input name="cuello" type="number" step="0.1" placeholder="Cuello cm">
+            <input name="pecho" type="number" step="0.1" placeholder="Pecho cm">
+            <input name="cintura" type="number" step="0.1" placeholder="Cintura cm">
+            <input name="abdomen" type="number" step="0.1" placeholder="Abdomen cm">
+            <input name="cadera" type="number" step="0.1" placeholder="Cadera cm">
+            <input name="gluteos" type="number" step="0.1" placeholder="Glúteos cm">
+            <input name="musloIzquierdo" type="number" step="0.1" placeholder="Muslo izquierdo cm">
+            <input name="musloDerecho" type="number" step="0.1" placeholder="Muslo derecho cm">
+            <input name="brazoIzquierdo" type="number" step="0.1" placeholder="Brazo izquierdo cm">
+            <input name="brazoDerecho" type="number" step="0.1" placeholder="Brazo derecho cm">
+            <select name="estadoAnimo">
+              <option value="">Estado de ánimo</option>
+              <option>Excelente</option>
+              <option>Bien</option>
+              <option>Normal</option>
+              <option>Cansada</option>
+            </select>
+            <textarea name="observaciones" placeholder="Observaciones"></textarea>
+            <button class="primary full" type="submit">Guardar medición</button>
+          </form>
+        </section>
+      </section>
+
+      <section class="view" id="view-photos">
+        <section class="panel">
+          <h2>Fotos de progreso</h2>
+          <p class="muted">Primero guardá una medición. Luego subí frente, espalda y perfiles.</p>
+          <div class="photoButtons">
+            <label>Frente<input type="file" accept="image/*" data-photo-type="Frente" hidden></label>
+            <label>Espalda<input type="file" accept="image/*" data-photo-type="Espalda" hidden></label>
+            <label>Perfil izquierdo<input type="file" accept="image/*" data-photo-type="Perfil izquierdo" hidden></label>
+            <label>Perfil derecho<input type="file" accept="image/*" data-photo-type="Perfil derecho" hidden></label>
+          </div>
+        </section>
+        <section class="panel">
+          <h2>Galería</h2>
+          <div id="photoGallery" class="gallery"></div>
+        </section>
+      </section>
+
+      <section class="view" id="view-history">
+        <section class="panel">
+          <h2>Historial</h2>
+          <div id="historyList" class="history"></div>
+        </section>
+      </section>
+
+      <section class="view" id="view-profile">
+        <section class="panel">
+          <h2>Perfil</h2>
+          <form id="profileForm" class="formGrid">
+            <input name="nombre" placeholder="Nombre">
+            <input name="apellido" placeholder="Apellido">
+            <input name="fechaNacimiento" type="date" placeholder="Fecha nacimiento">
+            <input name="altura" type="number" step="0.1" placeholder="Altura cm">
+            <input name="pesoInicial" type="number" step="0.1" placeholder="Peso inicial">
+            <input name="pesoActual" type="number" step="0.1" placeholder="Peso actual">
+            <input name="pesoObjetivo" type="number" step="0.1" placeholder="Peso objetivo">
+            <input name="fechaObjetivo" type="date" placeholder="Fecha objetivo">
+            <textarea name="objetivoGeneral" placeholder="Objetivo general"></textarea>
+            <button class="primary full" type="submit">Guardar perfil</button>
+          </form>
+        </section>
+      </section>
+    </main>
+
+    <nav class="bottomNav">
+      <button class="active" data-view="dashboard">🏠<span>Inicio</span></button>
+      <button data-view="measurement">📏<span>Medición</span></button>
+      <button data-view="photos">📸<span>Fotos</span></button>
+      <button data-view="history">📈<span>Historial</span></button>
+      <button data-view="profile">👤<span>Perfil</span></button>
+    </nav>
+
+    <div id="toast" class="toast hidden"></div>
+    <div id="loader" class="loader">Cargando...</div>
+  </div>
+
+  <?!= include('script'); ?>
+</body>
+</html>

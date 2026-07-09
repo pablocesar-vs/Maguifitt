@@ -1,0 +1,312 @@
+<script>
+const state = {
+  perfil: {},
+  mediciones: [],
+  fotos: [],
+  dashboard: {},
+  graficos: {},
+  lastMeasurementId: ''
+};
+
+google.charts.load('current', { packages: ['corechart'] });
+document.addEventListener('DOMContentLoaded', init);
+
+function init() {
+  bindNavigation();
+  bindForms();
+  cargarApp();
+}
+
+function cargarApp() {
+  showLoader(true);
+  google.script.run
+    .withSuccessHandler(data => {
+      if (!data || !data.ok) return toast('No se pudieron cargar los datos.');
+      Object.assign(state, data);
+      state.lastMeasurementId = state.mediciones[0]?.ID || '';
+      renderAll();
+      showLoader(false);
+    })
+    .withFailureHandler(handleError)
+    .obtenerDatosApp();
+}
+
+function bindNavigation() {
+  document.querySelectorAll('[data-view]').forEach(btn => {
+    btn.addEventListener('click', () => showView(btn.dataset.view));
+  });
+}
+
+function showView(view) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelector(`#view-${view}`).classList.add('active');
+  document.querySelectorAll('.bottomNav button').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+  if (view === 'dashboard') drawCharts();
+}
+
+function bindForms() {
+  document.getElementById('profileForm').addEventListener('submit', saveProfile);
+  document.getElementById('measurementForm').addEventListener('submit', saveMeasurement);
+  document.getElementById('profilePhotoInput').addEventListener('change', uploadProfilePhoto);
+  document.querySelectorAll('[data-photo-type]').forEach(input => input.addEventListener('change', uploadProgressPhoto));
+}
+
+function saveProfile(e) {
+  e.preventDefault();
+  const data = formData(e.target);
+  showLoader(true);
+  google.script.run
+    .withSuccessHandler(res => {
+      state.perfil = res.perfil;
+      state.dashboard = res.dashboard;
+      renderAll();
+      showLoader(false);
+      toast('Perfil guardado.');
+    })
+    .withFailureHandler(handleError)
+    .guardarPerfil(data);
+}
+
+function saveMeasurement(e) {
+  e.preventDefault();
+  const data = formData(e.target);
+  showLoader(true);
+  google.script.run
+    .withSuccessHandler(res => {
+      state.mediciones = res.mediciones;
+      state.dashboard = res.dashboard;
+      state.graficos = res.graficos;
+      state.lastMeasurementId = res.medicionId;
+      e.target.reset();
+      renderAll();
+      showView('photos');
+      showLoader(false);
+      toast('Medición guardada. Ahora podés subir fotos.');
+    })
+    .withFailureHandler(handleError)
+    .guardarMedicion(data);
+}
+
+function uploadProfilePhoto(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  fileToBase64(file).then(base64 => {
+    showLoader(true);
+    google.script.run
+      .withSuccessHandler(res => {
+        state.perfil['Foto perfil URL'] = res.url;
+        renderProfile();
+        showLoader(false);
+        toast('Foto de perfil actualizada.');
+      })
+      .withFailureHandler(handleError)
+      .guardarFotoPerfil(base64, file.name, file.type);
+  });
+}
+
+function uploadProgressPhoto(e) {
+  const file = e.target.files[0];
+  const tipo = e.target.dataset.photoType;
+  if (!file) return;
+  fileToBase64(file).then(base64 => {
+    showLoader(true);
+    google.script.run
+      .withSuccessHandler(() => {
+        e.target.value = '';
+        showLoader(false);
+        toast(`Foto ${tipo} guardada.`);
+        cargarApp();
+      })
+      .withFailureHandler(handleError)
+      .guardarFotoProgreso({
+        medicionId: state.lastMeasurementId,
+        tipo,
+        base64,
+        filename: file.name,
+        mimeType: file.type
+      });
+  });
+}
+
+function deleteMeasurement(id) {
+  if (!confirm('¿Eliminar esta medición?')) return;
+  showLoader(true);
+  google.script.run
+    .withSuccessHandler(res => {
+      state.mediciones = res.mediciones;
+      state.dashboard = res.dashboard;
+      state.graficos = res.graficos;
+      renderAll();
+      showLoader(false);
+      toast('Medición eliminada.');
+    })
+    .withFailureHandler(handleError)
+    .eliminarMedicion(id);
+}
+
+function duplicateMeasurement(id) {
+  showLoader(true);
+  google.script.run
+    .withSuccessHandler(res => {
+      state.mediciones = res.mediciones;
+      state.dashboard = res.dashboard;
+      state.graficos = res.graficos;
+      state.lastMeasurementId = res.medicionId;
+      renderAll();
+      showLoader(false);
+      toast('Medición duplicada.');
+    })
+    .withFailureHandler(handleError)
+    .duplicarMedicion(id);
+}
+
+function renderAll() {
+  renderProfile();
+  renderDashboard();
+  renderHistory();
+  renderPhotos();
+  google.charts.setOnLoadCallback(drawCharts);
+}
+
+function renderProfile() {
+  const p = state.perfil || {};
+  document.getElementById('profileName').textContent = p.Nombre || 'Magui';
+  document.getElementById('randomPhrase').textContent = state.frase || 'Cada pequeño avance cuenta.';
+  const avatar = document.getElementById('profileAvatar');
+  if (p['Foto perfil URL']) {
+    avatar.src = p['Foto perfil URL'];
+    avatar.style.display = 'block';
+  }
+
+  const form = document.getElementById('profileForm');
+  form.nombre.value = p.Nombre || '';
+  form.apellido.value = p.Apellido || '';
+  form.fechaNacimiento.value = normalizeDate(p['Fecha nacimiento']);
+  form.altura.value = p.Altura || '';
+  form.pesoInicial.value = p['Peso inicial'] || '';
+  form.pesoActual.value = p['Peso actual'] || '';
+  form.pesoObjetivo.value = p['Peso objetivo'] || '';
+  form.fechaObjetivo.value = normalizeDate(p['Fecha objetivo']);
+  form.objetivoGeneral.value = p['Objetivo general'] || '';
+}
+
+function renderDashboard() {
+  const d = state.dashboard || {};
+  setText('dashWeight', d.pesoActual ? `${d.pesoActual} kg` : '-');
+  setText('dashGoal', d.pesoObjetivo ? `${d.pesoObjetivo} kg` : '-');
+  setText('dashImc', d.imc || '-');
+  setText('dashDiff', d.diferencia !== '' ? `${d.diferencia} kg` : '-');
+  setText('dashProgressText', `${d.progreso || 0}%`);
+  setText('smartMessage', d.mensaje || '');
+  document.getElementById('progressBar').style.width = `${d.progreso || 0}%`;
+
+  const reminder = document.getElementById('reminderBox');
+  if (!d.ultimaMedicion) {
+    reminder.textContent = 'Todavía no hay mediciones. Cargá la primera y arrancamos con datos reales.';
+    reminder.classList.remove('hidden');
+  } else {
+    reminder.classList.add('hidden');
+  }
+}
+
+function renderHistory() {
+  const box = document.getElementById('historyList');
+  if (!state.mediciones.length) {
+    box.innerHTML = '<p class="muted">Todavía no hay mediciones.</p>';
+    return;
+  }
+  box.innerHTML = state.mediciones.map(m => `
+    <article class="historyItem">
+      <div class="historyTop">
+        <strong>${m.Fecha || ''}</strong>
+        <span>${m.Peso || '-'} kg · IMC ${m.IMC || '-'}</span>
+      </div>
+      <div class="muted">Cintura: ${m.Cintura || '-'} · Abdomen: ${m.Abdomen || '-'} · Glúteos: ${m.Gluteos || '-'}</div>
+      <div>${m.Observaciones || ''}</div>
+      <div class="historyActions">
+        <button onclick="duplicateMeasurement('${m.ID}')">Duplicar</button>
+        <button onclick="deleteMeasurement('${m.ID}')">Eliminar</button>
+      </div>
+    </article>
+  `).join('');
+}
+
+function renderPhotos() {
+  const box = document.getElementById('photoGallery');
+  if (!state.fotos.length) {
+    box.innerHTML = '<p class="muted">Todavía no hay fotos cargadas.</p>';
+    return;
+  }
+  box.innerHTML = state.fotos.map(f => `
+    <a href="${f.URL}" target="_blank">
+      <img src="${f.URL}" alt="${f.Tipo}">
+      <span>${f.Tipo}</span>
+    </a>
+  `).join('');
+}
+
+function drawCharts() {
+  if (!state.graficos || !state.graficos.peso || state.graficos.peso.length < 2) {
+    document.getElementById('chartPeso').innerHTML = '<p class="muted">Cargá mediciones para ver gráficos.</p>';
+    document.getElementById('chartMedidas').innerHTML = '<p class="muted">Cargá mediciones para ver gráficos.</p>';
+    return;
+  }
+
+  const options = {
+    legend: { position: 'bottom' },
+    chartArea: { width: '82%', height: '68%' },
+    backgroundColor: 'transparent',
+    colors: ['#E84C88', '#F8C8DC'],
+    pointSize: 5,
+    curveType: 'function'
+  };
+
+  const pesoData = google.visualization.arrayToDataTable(state.graficos.peso);
+  new google.visualization.LineChart(document.getElementById('chartPeso')).draw(pesoData, options);
+
+  const medidas = [['Fecha','Cintura','Glúteos']];
+  const cintura = state.graficos.cintura.slice(1);
+  const gluteos = state.graficos.gluteos.slice(1);
+  cintura.forEach((row, i) => medidas.push([row[0], row[1], gluteos[i]?.[1] || 0]));
+  const medidasData = google.visualization.arrayToDataTable(medidas);
+  new google.visualization.LineChart(document.getElementById('chartMedidas')).draw(medidasData, options);
+}
+
+function formData(form) {
+  return Object.fromEntries(new FormData(form).entries());
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function setText(id, value) {
+  document.getElementById(id).textContent = value;
+}
+
+function normalizeDate(value) {
+  if (!value) return '';
+  return String(value).slice(0, 10);
+}
+
+function showLoader(show) {
+  document.getElementById('loader').classList.toggle('hidden', !show);
+}
+
+function toast(message) {
+  const el = document.getElementById('toast');
+  el.textContent = message;
+  el.classList.remove('hidden');
+  setTimeout(() => el.classList.add('hidden'), 2600);
+}
+
+function handleError(err) {
+  showLoader(false);
+  toast(err && err.message ? err.message : 'Ocurrió un error.');
+}
+</script>
